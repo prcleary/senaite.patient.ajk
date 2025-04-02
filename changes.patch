@@ -1,0 +1,481 @@
+diff --git a/.gitignore b/.gitignore
+index 886303c..9bd84e1 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -24,7 +24,6 @@ Thumbs.db
+ /tags
+ .mr.developer.cfg
+ bin
+-
+ # Distribution / packaging
+ .Python
+ env/
+@@ -43,17 +42,14 @@ wheels/
+ *.egg-info/
+ .installed.cfg
+ *.egg
+-
+ # PyInstaller
+ #  Usually these files are written by a python script from a template
+ #  before PyInstaller builds the exe, so as to inject date/other infos into it.
+ *.manifest
+ *.spec
+-
+ # Installer logs
+ pip-log.txt
+ pip-delete-this-directory.txt
+-
+ # Unit test / coverage reports
+ htmlcov/
+ .tox/
+@@ -64,19 +60,18 @@ nosetests.xml
+ coverage.xml
+ *.cover
+ .hypothesis/
+-
+ # Translations
+ *.mo
+-
+ # virtualenv
+ .venv
+ venv/
+ ENV/
+-
+ # node
+ node_modules
+ package-lock.json
+ *.lock
+-
+ # senaite sources
+-src/senaite.*
+\ No newline at end of file
++src/senaite.*
++.Rproj.user
++senaite.patient.Rproj
++.Rhistory
+diff --git a/src/senaite/patient/adapters/listing.py b/src/senaite/patient/adapters/listing.py
+index c2990c7..64ce17a 100644
+--- a/src/senaite/patient/adapters/listing.py
++++ b/src/senaite/patient/adapters/listing.py
+@@ -61,6 +61,11 @@ ADD_COLUMNS = [
+         "index": "medical_record_number",
+         "after": "getId",
+     }),
++    ("CNIC", {
++        "title": _("CNIC"),
++        "sortable": False,
++        "after": "getId",
++    }),
+ ]
+ 
+ 
+@@ -111,6 +116,7 @@ class SamplesListingAdapter(object):
+         item["MRN"] = sample_patient_mrn
+         item["Patient"] = sample_patient_fullname
+ 
++
+         # get the patient object
+         patient = self.get_patient_by_mrn(sample_patient_mrn)
+ 
+@@ -138,6 +144,8 @@ class SamplesListingAdapter(object):
+             val = api.safe_unicode(patient_fullname) or _("<no value>")
+             icon_args = {"width": 16, "title": api.to_utf8(msg % val)}
+             item["after"]["Patient"] = self.icon_tag("info", **icon_args)
++            
++        item["CNIC"] = patient.getCNIC()
+ 
+     @viewcache
+     def get_patient_by_mrn(self, mrn):
+diff --git a/src/senaite/patient/api.py b/src/senaite/patient/api.py
+index df77a0f..3c686f9 100644
+--- a/src/senaite/patient/api.py
++++ b/src/senaite/patient/api.py
+@@ -148,6 +148,7 @@ def update_patient(patient, **values):
+     """
+     # set values explicitly
+     patient.setMRN(values.get("mrn", api.get_id(patient)))
++    patient.setCNIC(values.get("CNIC", ""))
+     patient.setFirstname(values.get("firstname", ""))
+     patient.setMiddlename(values.get("middlename", ""))
+     patient.setLastname(values.get("lastname", ""))
+diff --git a/src/senaite/patient/browser/patient/add2.py b/src/senaite/patient/browser/patient/add2.py
+index 532cf68..b527798 100644
+--- a/src/senaite/patient/browser/patient/add2.py
++++ b/src/senaite/patient/browser/patient/add2.py
+@@ -41,6 +41,8 @@ class PatientSampleAddView(BaseView):
+             if not mrn:
+                 return {"temporary": True, "value": ""}
+             return {"temporary": False, "value": mrn}
++        elif name == "CNIC":
++            address = self.context.getCNIC()
+         elif name == "PatientFullName":
+             entry_mode = get_patient_name_entry_mode()
+             if entry_mode == "parts":
+diff --git a/src/senaite/patient/browser/patientfolder.py b/src/senaite/patient/browser/patientfolder.py
+index 3187658..44b63e6 100644
+--- a/src/senaite/patient/browser/patientfolder.py
++++ b/src/senaite/patient/browser/patientfolder.py
+@@ -76,6 +76,8 @@ class PatientFolderView(ListingView):
+             ("mrn", {
+                 "title": _("Medical Record #"),
+                 "index": "patient_mrn"}),
++            ("CNIC", {
++                "title": _("CNIC"), }),
+             ("identifiers", {
+                 "title": _("Identifiers"), }),
+             ("fullname", {
+@@ -164,6 +166,9 @@ class PatientFolderView(ListingView):
+         item["mrn"] = self.to_utf8(mrn)
+         item["replace"]["mrn"] = get_link(url, value=mrn)
+ 
++        # CNIC
++        item["CNIC"] = obj.getCNIC()
++        
+         # Patient Identifiers
+         identifiers = obj.getIdentifiers()
+         item["identifiers"] = "<br>".join(
+diff --git a/src/senaite/patient/catalog/indexer/patient.py b/src/senaite/patient/catalog/indexer/patient.py
+index f08f13e..f2506a3 100644
+--- a/src/senaite/patient/catalog/indexer/patient.py
++++ b/src/senaite/patient/catalog/indexer/patient.py
+@@ -67,6 +67,11 @@ def patient_mrn(instance):
+     """
+     return instance.getMRN()
+ 
++@indexer(IPatient)
++def patient_CNIC(instance):
++    """Index CNIC
++    """
++    return instance.getCNIC()
+ 
+ @indexer(IPatient)
+ def patient_fullname(instance):
+@@ -109,6 +114,7 @@ def patient_searchable_text(instance):
+     searchable_text_tokens = [
+         instance.getEmail(),
+         instance.getMRN(),
++        instance.getCNIC(),
+         instance.getFullname(),
+         instance.getSexText(),
+         instance.getGenderText(),
+diff --git a/src/senaite/patient/catalog/indexer/sample.py b/src/senaite/patient/catalog/indexer/sample.py
+index 8837959..659ece8 100644
+--- a/src/senaite/patient/catalog/indexer/sample.py
++++ b/src/senaite/patient/catalog/indexer/sample.py
+@@ -56,5 +56,6 @@ class ListingSearchableTextProvider(object):
+         tokens = [
+             self.context.getMedicalRecordNumberValue(),
+             self.context.getPatientFullName(),
++            self.context.getCNIC(),
+         ]
+         return filter(None, tokens)
+diff --git a/src/senaite/patient/catalog/patient_catalog.py b/src/senaite/patient/catalog/patient_catalog.py
+index 48d1bc7..2883747 100644
+--- a/src/senaite/patient/catalog/patient_catalog.py
++++ b/src/senaite/patient/catalog/patient_catalog.py
+@@ -31,6 +31,7 @@ CATALOG_TITLE = "Senaite Patient Catalog"
+ INDEXES = BASE_INDEXES + [
+     # id, indexed attribute, type
+     ("patient_mrn", "", "FieldIndex"),
++    ("patient_CNIC", "", "FieldIndex"),
+     ("patient_identifier_keys", "", "KeywordIndex"),
+     ("patient_identifier_values", "", "KeywordIndex"),
+     ("patient_race_keys", "", "KeywordIndex"),
+diff --git a/src/senaite/patient/content/analysisrequest.py b/src/senaite/patient/content/analysisrequest.py
+index d122132..d15d2e4 100644
+--- a/src/senaite/patient/content/analysisrequest.py
++++ b/src/senaite/patient/content/analysisrequest.py
+@@ -24,6 +24,7 @@ from archetypes.schemaextender.interfaces import ISchemaModifier
+ from bika.lims.browser.widgets import SelectionWidget
+ from bika.lims.interfaces import IAnalysisRequest
+ from Products.Archetypes.Widget import TextAreaWidget
++from Products.Archetypes.Widget import StringWidget
+ from Products.CMFCore.permissions import View
+ from senaite.patient import messageFactory as _
+ from senaite.patient.api import get_patient_name_entry_mode
+@@ -47,6 +48,7 @@ from senaite.patient.permissions import FieldEditFullName
+ from senaite.patient.permissions import FieldEditGender
+ from senaite.patient.permissions import FieldEditMRN
+ from senaite.patient.permissions import FieldEditSex
++from senaite.patient.permissions import FieldEditCNIC
+ from senaite.patient.validators import TemporaryIdentifierValidator
+ from zope.component import adapts
+ from zope.interface import implementer
+@@ -90,6 +92,11 @@ MedicalRecordNumberField = TemporaryIdentifierField(
+                 "width": "25",
+                 "align": "left",
+                 "label": _(u"MRN"),
++            }, {
++                "name": "CNIC",
++                "width": "25",
++                "align": "left",
++                "label": _(u"CNIC"),
+             }, {
+                 "name": "firstname",
+                 "width": "25",
+@@ -111,6 +118,19 @@ MedicalRecordNumberField = TemporaryIdentifierField(
+     )
+ )
+ 
++CNICField = ExtTextField(
++    "CNIC",
++    read_permission=View,
++    write_permission=FieldEditCNIC,
++    widget=StringWidget(
++        label=_("CNIC"),
++        render_own_label=True,
++        visible={
++            "add": "edit",
++        }
++    )
++)
++
+ PatientFullNameField = FullnameField(
+     "PatientFullName",
+     required=True,
+@@ -143,7 +163,7 @@ PatientAddressField = ExtTextField(
+ 
+ dob_field = AgeDateOfBirthField(
+     "DateOfBirth",
+-    required=False,
++    required=True,
+     read_permission=View,
+     write_permission=FieldEditDateOfBirth,
+     widget=AgeDoBWidget(
+@@ -160,7 +180,7 @@ dob_field = AgeDateOfBirthField(
+ SexField = ExtStringField(
+     "Sex",
+     vocabulary=SEXES,
+-    required=False,
++    required=True,
+     default="",
+     read_permission=View,
+     write_permission=FieldEditSex,
+@@ -207,6 +227,7 @@ class AnalysisRequestSchemaExtender(object):
+     def getFields(self):
+         return [
+             MedicalRecordNumberField,
++            CNICField,
+             PatientFullNameField,
+             PatientAddressField,
+             dob_field,
+diff --git a/src/senaite/patient/content/patient.py b/src/senaite/patient/content/patient.py
+index 5e1fa40..f40d1a1 100644
+--- a/src/senaite/patient/content/patient.py
++++ b/src/senaite/patient/content/patient.py
+@@ -110,6 +110,12 @@ class IPatientSchema(model.Schema):
+         description=_(u"Patient Medical Record Number"),
+         required=True,
+     )
++    
++    CNIC = schema.TextLine(
++        title=_(u"label_patient_CNIC", default=u"CNIC"),
++        description=_(u"Patient CNIC"),
++        required=False,
++    )
+ 
+     directives.widget(
+         "identifiers",
+@@ -441,6 +447,19 @@ class Patient(Container):
+         mutator = self.mutator("mrn")
+         return mutator(self, api.safe_unicode(value))
+ 
++    @security.protected(permissions.View)
++    def getCNIC(self):
++        accessor = self.accessor("CNIC")
++        value = accessor(self) or ""
++        return value.encode("utf-8")
++
++    @security.protected(permissions.ModifyPortalContent)
++    def setCNIC(self, value):
++        if not isinstance(value, string_types):
++            value = u""
++        mutator = self.mutator("CNIC")
++        mutator(self, api.safe_unicode(value.strip()))
++
+     @security.protected(permissions.View)
+     def getIdentifiers(self):
+         """Returns the identifiers with the field accessor
+diff --git a/src/senaite/patient/monkeys/configure.zcml b/src/senaite/patient/monkeys/configure.zcml
+index 69c35bb..d2c2ebe 100644
+--- a/src/senaite/patient/monkeys/configure.zcml
++++ b/src/senaite/patient/monkeys/configure.zcml
+@@ -19,6 +19,14 @@
+     ignoreOriginal="True"
+     replacement=".content.analysisrequest.getMedicalRecordNumberValue" />
+ 
++  <!-- CNIC -->
++  <monkey:patch
++    description="CNIC"
++    class="bika.lims.content.analysisrequest.AnalysisRequest"
++    original="getCNIC"
++    ignoreOriginal="True"
++    replacement=".content.analysisrequest.getCNIC" />
++
+   <!-- Full Name -->
+   <monkey:patch
+     description="Patient's full name"
+diff --git a/src/senaite/patient/monkeys/content/analysisrequest.py b/src/senaite/patient/monkeys/content/analysisrequest.py
+index f226d8d..7c2b796 100644
+--- a/src/senaite/patient/monkeys/content/analysisrequest.py
++++ b/src/senaite/patient/monkeys/content/analysisrequest.py
+@@ -44,7 +44,18 @@ def getMedicalRecordNumberValue(self):  # noqa camelcase, but compliant with AT'
+         return None
+     return mrn.get("value")
+ 
++@check_installed(None)
++def getCNIC(self):  # noqa camelcase
++    """Returns the patient's CNIC
++    """
++    return self.getField("CNIC").get(self)
+ 
++@check_installed(None)
++def setCNIC(self, value):  # noqa camelcase
++    """Sets the patient CNIC
++    """
++    return self.getField("CNIC").set(self, value)
++  
+ @check_installed(None)
+ def getPatientFullName(self):  # noqa camelcase
+     """Returns the patient's full name
+diff --git a/src/senaite/patient/permissions.py b/src/senaite/patient/permissions.py
+index 13f0d1a..1c5aaff 100644
+--- a/src/senaite/patient/permissions.py
++++ b/src/senaite/patient/permissions.py
+@@ -32,6 +32,7 @@ TransitionDeactivate = "senaite.patient: Transition: Deactivate"
+ 
+ # Field permissions
+ FieldEditMRN = "senaite.patient: Field: Edit MRN"
++FieldEditCNIC = "senaite.patient: Field: Edit CNIC"
+ FieldEditFullName = "senaite.patient: Field: Edit Fullname"
+ FieldEditSex = "senaite.patient: Field: Edit Sex"
+ FieldEditGender = "senaite.patient: Field: Edit Gender"
+diff --git a/src/senaite/patient/permissions.zcml b/src/senaite/patient/permissions.zcml
+index 3e24308..2a147c7 100644
+--- a/src/senaite/patient/permissions.zcml
++++ b/src/senaite/patient/permissions.zcml
+@@ -18,6 +18,7 @@
+   <permission id="senaite.patient.permissions.FieldEditAddress" title="senaite.patient: Field: Edit Address"/>
+   <permission id="senaite.patient.permissions.FieldEditFullName" title="senaite.patient: Field: Edit Fullname"/>
+   <permission id="senaite.patient.permissions.FieldEditSex" title="senaite.patient: Field: Edit Sex"/>
++  <permission id="senaite.patient.permissions.FieldEditCNIC" title="senaite.patient: Field: Edit CNIC"/>
+   <permission id="senaite.patient.permissions.FieldEditGender" title="senaite.patient: Field: Edit Gender"/>
+ 
+ </configure>
+diff --git a/src/senaite/patient/profiles/default/rolemap.xml b/src/senaite/patient/profiles/default/rolemap.xml
+index 0723c78..d596098 100644
+--- a/src/senaite/patient/profiles/default/rolemap.xml
++++ b/src/senaite/patient/profiles/default/rolemap.xml
+@@ -64,6 +64,12 @@
+       <role name="LabManager"/>
+       <role name="Manager"/>
+     </permission>
++    <permission name="senaite.patient: Field: Edit CNIC" acquire="False">
++      <role name="Owner"/>
++      <role name="LabClerk"/>
++      <role name="LabManager"/>
++      <role name="Manager"/>
++    </permission>
+     <permission name="senaite.patient: Field: Edit Gender" acquire="False">
+       <role name="Owner"/>
+       <role name="LabClerk"/>
+diff --git a/src/senaite/patient/profiles/default/workflows/senaite_patient_workflow/definition.xml b/src/senaite/patient/profiles/default/workflows/senaite_patient_workflow/definition.xml
+index 640b40d..c190ac0 100644
+--- a/src/senaite/patient/profiles/default/workflows/senaite_patient_workflow/definition.xml
++++ b/src/senaite/patient/profiles/default/workflows/senaite_patient_workflow/definition.xml
+@@ -17,6 +17,7 @@
+   <permission>View</permission>
+   <!-- senaite.patient: Field permissions -->
+   <permission>senaite.patient: Field: Edit MRN</permission>
++  <permission>senaite.patient: Field: Edit CNIC</permission>
+   <permission>senaite.patient: Field: Edit ID</permission>
+   <permission>senaite.patient: Field: Edit Fullname</permission>
+   <permission>senaite.patient: Field: Edit Sex</permission>
+@@ -94,6 +95,7 @@
+ 
+     <!-- Custom field permissions (Use default roles from rolemap) -->
+     <permission-map name="senaite.patient: Field: Edit MRN" acquired="True" />
++    <permission-map name="senaite.patient: Field: Edit CNIC" acquired="True" />
+     <permission-map name="senaite.patient: Field: Edit ID" acquired="True" />
+     <permission-map name="senaite.patient: Field: Edit Fullname" acquired="True" />
+     <permission-map name="senaite.patient: Field: Edit Sex" acquired="True" />
+@@ -161,6 +163,7 @@
+ 
+     <!-- Disallow to edit fields -->
+     <permission-map name="senaite.patient: Field: Edit MRN" acquired="False" />
++    <permission-map name="senaite.patient: Field: Edit CNIC" acquired="False" />
+     <permission-map name="senaite.patient: Field: Edit ID" acquired="False" />
+     <permission-map name="senaite.patient: Field: Edit Fullname" acquired="False" />
+     <permission-map name="senaite.patient: Field: Edit Sex" acquired="False" />
+diff --git a/src/senaite/patient/setuphandlers.py b/src/senaite/patient/setuphandlers.py
+index 327412e..82a970a 100644
+--- a/src/senaite/patient/setuphandlers.py
++++ b/src/senaite/patient/setuphandlers.py
+@@ -86,6 +86,7 @@ WORKFLOW_TO_UPDATE = {
+                     # Field permissions (read-only)
+                     permissions.FieldEditDateOfBirth: (),
+                     permissions.FieldEditMRN: (),
++                    permissions.FieldEditCNIC: (),
+                     permissions.FieldEditAddress: (),
+                     permissions.FieldEditFullName: (),
+                     permissions.FieldEditSex: (),
+@@ -98,6 +99,7 @@ WORKFLOW_TO_UPDATE = {
+                     # Field permissions (read-only)
+                     permissions.FieldEditDateOfBirth: (),
+                     permissions.FieldEditMRN: (),
++                    permissions.FieldEditCNIC: (),
+                     permissions.FieldEditAddress: (),
+                     permissions.FieldEditFullName: (),
+                     permissions.FieldEditSex: (),
+@@ -110,6 +112,7 @@ WORKFLOW_TO_UPDATE = {
+                     # Field permissions (read-only)
+                     permissions.FieldEditDateOfBirth: (),
+                     permissions.FieldEditMRN: (),
++                    permissions.FieldEditCNIC: (),
+                     permissions.FieldEditAddress: (),
+                     permissions.FieldEditFullName: (),
+                     permissions.FieldEditSex: (),
+@@ -122,6 +125,7 @@ WORKFLOW_TO_UPDATE = {
+                     # Field permissions (read-only)
+                     permissions.FieldEditDateOfBirth: (),
+                     permissions.FieldEditMRN: (),
++                    permissions.FieldEditCNIC: (),
+                     permissions.FieldEditAddress: (),
+                     permissions.FieldEditFullName: (),
+                     permissions.FieldEditSex: (),
+@@ -134,6 +138,7 @@ WORKFLOW_TO_UPDATE = {
+                     # Field permissions (read-only)
+                     permissions.FieldEditDateOfBirth: (),
+                     permissions.FieldEditMRN: (),
++                    permissions.FieldEditCNIC: (),
+                     permissions.FieldEditAddress: (),
+                     permissions.FieldEditFullName: (),
+                     permissions.FieldEditSex: (),
+@@ -146,6 +151,7 @@ WORKFLOW_TO_UPDATE = {
+                     # Field permissions (read-only)
+                     permissions.FieldEditDateOfBirth: (),
+                     permissions.FieldEditMRN: (),
++                    permissions.FieldEditCNIC: (),
+                     permissions.FieldEditAddress: (),
+                     permissions.FieldEditFullName: (),
+                     permissions.FieldEditSex: (),
+diff --git a/src/senaite/patient/subscribers/analysisrequest.py b/src/senaite/patient/subscribers/analysisrequest.py
+index a9f1cf9..3339195 100644
+--- a/src/senaite/patient/subscribers/analysisrequest.py
++++ b/src/senaite/patient/subscribers/analysisrequest.py
+@@ -126,6 +126,7 @@ def get_patient_fields(instance):
+     """Extract the patient fields from the sample
+     """
+     mrn = instance.getMedicalRecordNumberValue()
++    CNIC = instance.getField("CNIC").get(instance)
+     sex = instance.getField("Sex").get(instance)
+     gender = instance.getField("Gender").get(instance)
+     birthdate = instance.getField("DateOfBirth").get(instance)
+@@ -143,6 +144,7 @@ def get_patient_fields(instance):
+ 
+     return {
+         "mrn": mrn,
++        "CNIC": CNIC,
+         "sex": sex,
+         "gender": gender,
+         "birthdate": birthdate[0],
