@@ -127,6 +127,7 @@ def get_patient_fields(instance):
     """Extract the patient fields from the sample
     """
     mrn = instance.getMedicalRecordNumberValue()
+    CNIC = instance.getField("CNIC").get(instance)
     sex = instance.getField("Sex").get(instance)
     gender = instance.getField("Gender").get(instance)
     birthdate = instance.getField("DateOfBirth").get(instance)
