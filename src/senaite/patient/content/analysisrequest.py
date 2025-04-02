@@ -24,6 +24,7 @@ from archetypes.schemaextender.interfaces import ISchemaModifier
 from bika.lims.browser.widgets import SelectionWidget
 from bika.lims.interfaces import IAnalysisRequest
 from Products.Archetypes.Widget import TextAreaWidget
+from Products.Archetypes.Widget import StringWidget
 from Products.CMFCore.permissions import View
 from senaite.patient import messageFactory as _
 from senaite.patient.api import get_patient_name_entry_mode
@@ -47,6 +48,7 @@ from senaite.patient.permissions import FieldEditFullName
 from senaite.patient.permissions import FieldEditGender
 from senaite.patient.permissions import FieldEditMRN
 from senaite.patient.permissions import FieldEditSex
+from senaite.patient.permissions import FieldEditCNIC
 from senaite.patient.validators import TemporaryIdentifierValidator
 from zope.component import adapts
 from zope.interface import implementer
@@ -91,6 +93,11 @@ MedicalRecordNumberField = TemporaryIdentifierField(
                 "align": "left",
                 "label": _(u"MRN"),
             }, {
+                "name": "CNIC",
+                "width": "25",
+                "align": "left",
+                "label": _(u"CNIC"),
+            }, {
                 "name": "firstname",
                 "width": "25",
                 "align": "left",
@@ -108,6 +115,19 @@ MedicalRecordNumberField = TemporaryIdentifierField(
             },
         ],
         limit=3,
+    )
+)
+
+CNICField = ExtTextField(
+    "CNIC",
+    read_permission=View,
+    write_permission=FieldEditCNIC,
+    widget=StringWidget(
+        label=_("CNIC"),
+        render_own_label=True,
+        visible={
+            "add": "edit",
+        }
     )
 )
 
@@ -143,7 +163,7 @@ PatientAddressField = ExtTextField(
 
 dob_field = AgeDateOfBirthField(
     "DateOfBirth",
-    required=False,
+    required=True,
     read_permission=View,
     write_permission=FieldEditDateOfBirth,
     widget=AgeDoBWidget(
@@ -160,7 +180,7 @@ dob_field = AgeDateOfBirthField(
 SexField = ExtStringField(
     "Sex",
     vocabulary=SEXES,
-    required=False,
+    required=True,
     default="",
     read_permission=View,
     write_permission=FieldEditSex,
@@ -207,6 +227,7 @@ class AnalysisRequestSchemaExtender(object):
     def getFields(self):
         return [
             MedicalRecordNumberField,
+            CNICField,
             PatientFullNameField,
             PatientAddressField,
             dob_field,

@@ -32,6 +32,7 @@ TransitionDeactivate = "senaite.patient: Transition: Deactivate"
 
 # Field permissions
 FieldEditMRN = "senaite.patient: Field: Edit MRN"
+FieldEditCNIC = "senaite.patient: Field: Edit CNIC"
 FieldEditFullName = "senaite.patient: Field: Edit Fullname"
 FieldEditSex = "senaite.patient: Field: Edit Sex"
 FieldEditGender = "senaite.patient: Field: Edit Gender"

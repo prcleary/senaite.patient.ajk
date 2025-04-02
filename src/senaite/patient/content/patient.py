@@ -110,6 +110,12 @@ class IPatientSchema(model.Schema):
         description=_(u"Patient Medical Record Number"),
         required=True,
     )
+    
+    CNIC = schema.TextLine(
+        title=_(u"label_patient_CNIC", default=u"CNIC"),
+        description=_(u"Patient CNIC"),
+        required=False,
+    )
 
     directives.widget(
         "identifiers",
@@ -440,6 +446,19 @@ class Patient(Container):
 
         mutator = self.mutator("mrn")
         return mutator(self, api.safe_unicode(value))
+
+    @security.protected(permissions.View)
+    def getCNIC(self):
+        accessor = self.accessor("CNIC")
+        value = accessor(self) or ""
+        return value.encode("utf-8")
+
+    @security.protected(permissions.ModifyPortalContent)
+    def setCNIC(self, value):
+        if not isinstance(value, string_types):
+            value = u""
+        mutator = self.mutator("CNIC")
+        mutator(self, api.safe_unicode(value.strip()))
 
     @security.protected(permissions.View)
     def getIdentifiers(self):

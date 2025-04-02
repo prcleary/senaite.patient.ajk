@@ -17,6 +17,7 @@
   <permission>View</permission>
   <!-- senaite.patient: Field permissions -->
   <permission>senaite.patient: Field: Edit MRN</permission>
+  <permission>senaite.patient: Field: Edit CNIC</permission>
   <permission>senaite.patient: Field: Edit ID</permission>
   <permission>senaite.patient: Field: Edit Fullname</permission>
   <permission>senaite.patient: Field: Edit Sex</permission>
@@ -94,6 +95,7 @@
 
     <!-- Custom field permissions (Use default roles from rolemap) -->
     <permission-map name="senaite.patient: Field: Edit MRN" acquired="True" />
+    <permission-map name="senaite.patient: Field: Edit CNIC" acquired="True" />
     <permission-map name="senaite.patient: Field: Edit ID" acquired="True" />
     <permission-map name="senaite.patient: Field: Edit Fullname" acquired="True" />
     <permission-map name="senaite.patient: Field: Edit Sex" acquired="True" />
@@ -161,6 +163,7 @@
 
     <!-- Disallow to edit fields -->
     <permission-map name="senaite.patient: Field: Edit MRN" acquired="False" />
+    <permission-map name="senaite.patient: Field: Edit CNIC" acquired="False" />
     <permission-map name="senaite.patient: Field: Edit ID" acquired="False" />
     <permission-map name="senaite.patient: Field: Edit Fullname" acquired="False" />
     <permission-map name="senaite.patient: Field: Edit Sex" acquired="False" />

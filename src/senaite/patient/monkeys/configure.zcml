@@ -19,6 +19,14 @@
     ignoreOriginal="True"
     replacement=".content.analysisrequest.getMedicalRecordNumberValue" />
 
+  <!-- CNIC -->
+  <monkey:patch
+    description="CNIC"
+    class="bika.lims.content.analysisrequest.AnalysisRequest"
+    original="getCNIC"
+    ignoreOriginal="True"
+    replacement=".content.analysisrequest.getCNIC" />
+
   <!-- Full Name -->
   <monkey:patch
     description="Patient's full name"

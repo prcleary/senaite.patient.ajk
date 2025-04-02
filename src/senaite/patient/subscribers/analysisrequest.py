@@ -80,6 +80,7 @@ def update_patient(instance):
     if instance.isMedicalRecordTemporary():
         return
     mrn = instance.getMedicalRecordNumberValue()
+    CNIC = instance.getField("CNIC").get(instance)
     # Allow empty value when patients are not required for samples
     if mrn is None:
         return
@@ -143,6 +144,7 @@ def get_patient_fields(instance):
 
     return {
         "mrn": mrn,
+        "CNIC": CNIC,
         "sex": sex,
         "gender": gender,
         "birthdate": birthdate[0],
