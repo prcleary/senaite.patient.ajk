@@ -143,8 +143,8 @@ class SamplesListingAdapter(object):
             val = api.safe_unicode(patient_fullname) or _("<no value>")
             icon_args = {"width": 16, "title": api.to_utf8(msg % val)}
             item["after"]["Patient"] = self.icon_tag("info", **icon_args)
-
-         item["CNIC"] = patient.getCNIC()
+            
+        item["CNIC"] = patient.getCNIC()
 
     @viewcache
     def get_patient_by_mrn(self, mrn):
